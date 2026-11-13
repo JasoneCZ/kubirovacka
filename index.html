@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kubírovačka">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f3ee">
+<title>Kubírovačka</title>
+<meta name="description" content="Kubírování kulatiny a suráků v terénu – funguje i bez signálu.">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121412">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<style>
+:root{
+  --bg:#f5f3ee; --card:#ffffff; --ink:#1c1f1d; --mute:#7a7f7b; --line:#e7e3da;
+  --acc:#1e6b4a; --accSoft:#e2f0e8; --accInk:#ffffff;
+  --sur:#c2701b; --surSoft:#fbecd8;
+  --key:#ffffff; --keyShadow:0 1px 0 #ddd8cc, 0 2px 6px rgba(60,50,30,.06);
+  --warn:#c0412b; --chip:#ece8df;
+  --cur:var(--acc); --curSoft:var(--accSoft);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#121412; --card:#1c1f1d; --ink:#f1f1ee; --mute:#959a96; --line:#2a2e2b;
+    --acc:#47b07f; --accSoft:#1d3328; --accInk:#08130d;
+    --sur:#f0a04b; --surSoft:#3a2a17;
+    --key:#262a27; --keyShadow:0 1px 0 #0b0c0b;
+    --warn:#ef7a63; --chip:#262a27;
+  }
+}
+.sur{--cur:var(--sur);--curSoft:var(--surSoft)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font:16px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+  -webkit-user-select:none;user-select:none;overscroll-behavior:none;touch-action:manipulation;-webkit-text-size-adjust:100%}
+input,button{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0}
+.app{display:flex;flex-direction:column;height:100%;
+  padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+
+
+.app{max-width:720px;margin:0 auto}
+/* hlavička */
+header{flex:none;display:flex;align-items:flex-end;gap:12px;padding:10px 16px 6px}
+header .job{flex:1;min-width:0;text-align:left}
+header .job small{display:block;color:var(--mute);font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+header .job b{display:flex;align-items:center;gap:6px;font-size:19px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .job b span{overflow:hidden;text-overflow:ellipsis}
+header .job b i{font-style:normal;color:var(--mute);font-size:14px}
+.sync{text-transform:none;letter-spacing:0;font-weight:700}
+.sync.ok{color:var(--acc)}.sync.offline{color:var(--warn)}.sync.local,.sync.pending,.sync.loading{color:var(--mute)}
+header .tot{text-align:right;flex:none}
+header .tot b{font-size:30px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--cur);line-height:1.1}
+header .tot b em{font-style:normal}
+header .tot b span{font-size:15px;font-weight:600;color:var(--mute);margin-left:3px}
+header .tot small{display:block;color:var(--mute);font-size:12.5px;font-weight:600}
+
+.modebar{flex:none;padding:4px 14px 4px}
+.mode{display:flex;background:var(--chip);border-radius:14px;padding:4px}
+.mode button{flex:1;padding:10px 0;border-radius:11px;font-weight:700;font-size:16px;color:var(--mute)}
+.mode button.on[data-m="K"]{background:var(--acc);color:var(--accInk)}
+.mode button.on[data-m="S"]{background:var(--sur);color:#fff}
+
+main{flex:1;min-height:0;display:flex;flex-direction:column}
+.view{display:none;flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch}
+.view.on{display:block}
+#v-measure.on{display:flex;flex-direction:column;overflow:hidden}
+
+/* displej */
+.display{flex:none;padding:6px 14px 0}
+.fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.field{border:2px solid var(--line);border-radius:16px;padding:7px 10px 6px;background:var(--card);text-align:left;min-width:0;min-height:82px;display:flex;flex-direction:column}
+.field.on{border-color:var(--cur);background:var(--curSoft)}
+.field small{display:block;font-size:11px;color:var(--mute);font-weight:700;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.field b{display:block;font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15;white-space:nowrap;overflow:hidden}
+.field b .u{font-size:14px;font-weight:600;color:var(--mute);margin-left:3px}
+.field b .ph{opacity:.35}
+.field.vol{background:transparent;border-style:dashed}
+.field.vol b{color:var(--cur);font-size:30px}
+.field .note{display:block;font-size:11.5px;font-weight:600;color:var(--mute);white-space:nowrap;margin-top:auto}
+.info{height:48px;display:flex;align-items:center;gap:6px;padding:8px 0 2px}
+.info .chipL{flex:1;height:36px;border-radius:10px;background:var(--chip);font-weight:700;font-size:14.5px;color:var(--mute)}
+.info .chipL.on{background:var(--cur);color:#fff}
+.info .il{flex:1;text-align:center;color:var(--mute);font-size:14px}
+.info .last{flex:1;display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;border-radius:11px;background:var(--card);border:1px solid var(--line);font-variant-numeric:tabular-nums;min-width:0}
+.info .last span{color:var(--mute);font-size:12.5px;font-weight:600;white-space:nowrap}
+.info .last b{font-size:14.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.info .last .lv{margin-left:auto;color:var(--cur)}
+.info .last i{font-style:normal;color:var(--mute);font-size:18px}
+.info .last.flash{animation:flash .7s ease}
+@keyframes flash{from{background:var(--curSoft);border-color:var(--cur)}}
+
+/* klávesnice */
+.pad{flex:1;min-height:0;display:grid;grid-template-columns:1.45fr 1fr 1fr 1fr 1.25fr;grid-template-rows:repeat(4,minmax(46px,1fr));gap:7px;padding:6px 12px 12px}
+.pad button{display:flex;align-items:center;justify-content:center;border-radius:16px;background:var(--key);box-shadow:var(--keyShadow);color:var(--ink);font-size:31px;font-weight:500;font-variant-numeric:tabular-nums;min-width:0}
+.pad button:active{transform:scale(.96);filter:brightness(.93)}
+.pad button:disabled{opacity:.3}
+.pad .fn{background:var(--chip);box-shadow:none;color:var(--mute);font-size:24px}
+.pad .fk{flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;padding:4px 9px;background:var(--chip);box-shadow:none;text-align:left}
+.pad .fk small{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mute);white-space:nowrap}
+.pad .fk b{font-size:14.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.pad .fk.on{background:var(--cur)}
+.pad .fk.on small,.pad .fk.on b{color:#fff}
+.pad .fk.undo b{font-size:15px}
+.pad .add{background:var(--cur);color:#fff;font-size:19px;font-weight:800;box-shadow:none;flex-direction:column;line-height:1.25;text-align:center}
+.pad .add.next{font-size:15px}
+.pad .add .plus{font-size:40px;font-weight:600;line-height:1}
+.pad .hint{display:none;flex-direction:column;justify-content:center;padding:4px 10px;font-size:12.5px;line-height:1.4;color:var(--mute)}
+.pad .hint b{color:var(--ink);font-size:13px}
+.sur .pad .hint{display:flex}
+.sur #kBk,.sur #commaKey{display:none}
+
+/* spodní navigace */
+nav{flex:none;display:flex;gap:6px;background:var(--card);border-top:1px solid var(--line);padding:7px 12px calc(7px + env(safe-area-inset-bottom))}
+nav button{flex:1;padding:11px 0;border-radius:12px;font-size:16px;font-weight:700;color:var(--mute)}
+nav button.on{background:var(--chip);color:var(--ink)}
+
+/* seznam */
+.sec{padding:8px 14px 16px}
+.lsum{display:flex;justify-content:space-between;align-items:baseline;padding:6px 4px 10px}
+.lsum span{color:var(--mute);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.lsum b{font-size:17px;font-variant-numeric:tabular-nums}
+.row{display:flex;align-items:center;gap:10px;padding:11px 6px 11px 12px;background:var(--card);border-radius:14px;margin-bottom:7px;font-variant-numeric:tabular-nums;border:1px solid var(--line)}
+.row .n{min-width:26px;color:var(--mute);font-size:13px;font-weight:700}
+.row .main{flex:1;min-width:0}
+.row .main b{display:block;font-size:17px;font-weight:600}
+.row .main small{display:block;color:var(--mute);font-size:12.5px}
+.row .v{font-weight:800;font-size:17px;white-space:nowrap}
+.row .v span{font-size:12px;color:var(--mute);font-weight:600;margin-left:2px}
+.row .x{width:36px;height:36px;border-radius:10px;color:var(--mute);font-size:22px;line-height:1;flex:none}
+.empty{color:var(--mute);text-align:center;padding:30px 16px;font-size:15px;line-height:1.5}
+.empty b{color:var(--ink)}
+
+/* sumář a zakázky */
+.card{background:var(--card);border-radius:16px;padding:14px 16px;margin-bottom:12px;border:1px solid var(--line)}
+.card h3{margin:0 0 8px;font-size:13px;color:var(--mute);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.card.k{border-left:5px solid var(--acc)}.card.k h3{color:var(--acc)}
+.card.s{border-left:5px solid var(--sur)}.card.s h3{color:var(--sur)}
+.hero{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.hero div{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px}
+.hero small{display:block;color:var(--mute);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.hero b{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums}
+.hero b span{font-size:14px;color:var(--mute);margin-left:3px}
+.kv{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.kv:last-child{border-bottom:0}.kv b{font-weight:700}.kv span{color:var(--mute)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14.5px}
+th{text-align:right;color:var(--mute);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;padding:6px 3px;border-bottom:1px solid var(--line)}
+td{text-align:right;padding:8px 3px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+tr:last-child td{border-bottom:0}
+tr.sum td{font-weight:800}
+.price{width:78px;padding:6px 8px;border:1.5px solid var(--line);border-radius:9px;background:var(--bg);text-align:right;-webkit-user-select:text;user-select:text}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{flex:1;padding:13px 10px;border-radius:12px;background:var(--chip);font-weight:700;font-size:15px;min-width:120px}
+.btn.pri{background:var(--acc);color:var(--accInk)}
+.btn.danger{color:var(--warn)}
+.jobs .j{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);border-radius:14px;margin-bottom:8px;border:1.5px solid var(--line)}
+.jobs .j.on{border-color:var(--acc);background:var(--accSoft)}
+.jobs .j .t{flex:1;min-width:0}
+.jobs .j .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jobs .j .t small{color:var(--mute);font-size:13px}
+.jobs .j .m{font-weight:800;font-variant-numeric:tabular-nums}
+.note{color:var(--mute);font-size:12.5px;line-height:1.5;padding:2px 4px 16px}
+.lbl{color:var(--mute);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:16px 4px 8px}
+
+/* dialogy */
+.modal{position:fixed;inset:0;background:rgba(10,12,10,.45);display:none;align-items:flex-end;justify-content:center;z-index:9}
+.modal.on{display:flex}
+.sheet{background:var(--card);width:100%;max-width:520px;border-radius:22px 22px 0 0;padding:20px 16px calc(16px + env(safe-area-inset-bottom))}
+.sheet h2{margin:0 0 6px;font-size:19px}
+.sheet p{margin:0 0 12px;color:var(--mute)}
+.sheet input{width:100%;padding:13px;border:1.5px solid var(--line);border-radius:12px;background:var(--bg);margin-bottom:12px;font-size:17px;-webkit-user-select:text;user-select:text}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 4px}
+.grid button{padding:16px 4px;border-radius:12px;background:var(--chip);font-size:16px;font-weight:700}
+.grid.jak button{font-size:22px;padding:18px 0}
+.grid button.on{background:var(--cur);color:#fff}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1c1f1d;color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:10;white-space:nowrap}
+.toast.on{opacity:.94}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <button class="job" id="hJobBtn"><small>Zakázka · <span id="sync" class="sync"></span></small><b><span id="hJob">—</span><i>▾</i></b></button>
+    <div class="tot"><b><em id="hVol">0,00</em><span>m³</span></b><small id="hCnt">0 ks</small></div>
+  </header>
+  <div class="modebar" id="modeBar"><div class="mode" id="modeSw"><button data-m="K" class="on">Kulatina</button><button data-m="S">Suráky</button></div></div>
+
+  <main>
+    <!-- MĚŘENÍ -->
+    <section class="view on" id="v-measure">
+      <div class="display">
+        <div class="fields">
+          <button class="field" id="fA"><small id="lA">Délka</small><b><span id="vA"></span><span class="u" id="uA">m</span></b></button>
+          <button class="field on" id="fB"><small id="lB">Průměr</small><b><span id="vB"></span><span class="u" id="uB">cm</span></b></button>
+          <div class="field vol"><small>Objem m³</small><b id="vV">—</b><span class="note" id="vNote"></span></div>
+        </div>
+        <div class="info" id="info"></div>
+      </div>
+      <div class="pad" id="pad">
+        <button class="fk" id="kSp" data-f="sp" style="grid-area:1/1"><small>Dřevina</small><b id="kSpV">Smrk</b></button>
+        <button data-k="1" style="grid-area:1/2">1</button>
+        <button data-k="2" style="grid-area:1/3">2</button>
+        <button data-k="3" style="grid-area:1/4">3</button>
+        <button class="fk undo" data-f="undo" style="grid-area:1/5"><small>Poslední</small><b>↶ Zpět</b></button>
+
+        <button class="fk" id="kJak" data-f="jak" style="grid-area:2/1"><small>Jakost</small><b id="kJakV">I</b></button>
+        <button data-k="4" style="grid-area:2/2">4</button>
+        <button data-k="5" style="grid-area:2/3">5</button>
+        <button data-k="6" style="grid-area:2/4">6</button>
+        <button class="add" id="addBtn" data-k="add" style="grid-area:2/5/5/6"></button>
+
+        <button class="fk" id="kOdd" data-f="odd" style="grid-area:3/1"><small>Oddenek</small><b id="kOddV">Ne</b></button>
+        <button data-k="7" style="grid-area:3/2">7</button>
+        <button data-k="8" style="grid-area:3/3">8</button>
+        <button data-k="9" style="grid-area:3/4">9</button>
+
+        <button class="fk" id="kBk" data-f="bk" style="grid-area:4/1"><small>Měřeno</small><b id="kBkV">S kůrou</b></button>
+        <button class="fn" id="commaKey" data-k="," style="grid-area:4/2">,</button>
+        <div class="hint" style="grid-area:4/1/5/3"><b>Objem suráku</b>kategorie × 0,1 m³ × kusy</div>
+        <button data-k="0" style="grid-area:4/3">0</button>
+        <button class="fn" data-k="back" style="grid-area:4/4" aria-label="Smazat číslici">⌫</button>
+      </div>
+    </section>
+
+    <!-- SEZNAM -->
+    <section class="view" id="v-list"><div class="sec" id="listBody"></div></section>
+    <!-- SUMÁŘ -->
+    <section class="view" id="v-sum"><div class="sec" id="sumBody"></div></section>
+    <!-- ZAKÁZKY -->
+    <section class="view" id="v-jobs"><div class="sec" id="jobsBody"></div></section>
+  </main>
+
+  <nav>
+    <button class="on" data-v="measure">Měření</button>
+    <button data-v="list">Seznam</button>
+    <button data-v="sum">Sumář</button>
+  </nav>
+</div>
+
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="restoreIn" accept=".json,application/json" hidden>
+
+<script>
+(function(){
+"use strict";
+const SPECIES=[["SM","Smrk"],["BO","Borovice"],["MD","Modřín"],["JD","Jedle"],["DG","Douglaska"],
+  ["DB","Dub"],["BK","Buk"],["JV","Javor"],["JS","Jasan"],["BR","Bříza"],["OL","Olše"],["TP","Topol"],["OS","Ostatní"]];
+const SPN=Object.fromEntries(SPECIES);
+const MODES={K:"Kulatina",S:"Suráky"};
+const JAK=["I","II","III","IV","V","VI"];
+const LENS=[2,3,4,5,6,8];
+const KEY="kubirovacka.v1";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+
+/* ---------- data ---------- */
+function newJob(name,from){
+  const now=Date.now();
+  return {id:uid(),name:name||("Zakázka "+new Date().toLocaleDateString("cs-CZ")),created:now,u:now,jprl:"",
+    sp:from?from.sp:"SM",L:from?from.L:4,jak:1,odd:false,nb:false,mode:"K",
+    prices:from?Object.assign({},from.prices):{},logs:[],del:[]};
+}
+function blankState(){const j=newJob();j.auto=true;return {v:3,mu:0,cur:j.id,del:[],jobs:[j]};}
+function normalize(o){
+  if(!o||!Array.isArray(o.jobs)||!o.jobs.length)return null;
+  const t=o.updatedAt||o.mu||0;
+  o.v=3;if(o.mu==null)o.mu=t;delete o.updatedAt;if(!Array.isArray(o.del))o.del=[];
+  o.jobs.forEach(j=>{
+    if(!j.mode)j.mode="K";if(!j.prices)j.prices={};if(!j.jak)j.jak=1;if(j.jprl==null)j.jprl="";
+    if(!Array.isArray(j.logs))j.logs=[];if(!Array.isArray(j.del))j.del=[];if(j.u==null)j.u=t;
+    if(j.barkMode==="none")j.logs.forEach(l=>{if(!l.m)l.nb=1;});
+    delete j.barkMode;delete j.bark;delete j.dec;
+  });
+  if(!o.jobs.some(j=>j.id===o.cur))o.cur=o.jobs[o.jobs.length-1].id;
+  return o;
+}
+let S=null;
+try{const r=localStorage.getItem(KEY);if(r)S=normalize(JSON.parse(r));}catch(e){}
+if(!S)S=blankState();
+const job=()=>S.jobs.find(j=>j.id===S.cur)||S.jobs[0];
+const modeOf=l=>l.m||"K";
+const logsOf=(j,m)=>j.logs.filter(l=>modeOf(l)===m);
+
+/* ---------- ukládání ----------
+   Vše se ukládá v tomto zařízení (localStorage). Web běží na vlastní adrese, takže úložiště je trvalé;
+   aplikace přidaná na plochu ho má vlastní. Pro jistotu je v Zakázkách záloha do souboru a obnova. */
+function stable(v){
+  if(Array.isArray(v))return "["+v.map(stable).join(",")+"]";
+  if(v&&typeof v==="object")return "{"+Object.keys(v).sort().map(k=>JSON.stringify(k)+":"+stable(v[k])).join(",")+"}";
+  return JSON.stringify(v===undefined?null:v);
+}
+const stamp=l=>l.u||l.t||0;
+function mergeJob(a,b){
+  const newer=(a.u||0)>=(b.u||0)?a:b,del=new Set([].concat(a.del||[],b.del||[])),lm=new Map();
+  [b,a].forEach(src=>(src.logs||[]).forEach(l=>{const p=lm.get(l.id);if(!p||stamp(l)>=stamp(p))lm.set(l.id,l);}));
+  const logs=[...lm.values()].filter(l=>!del.has(l.id)).sort((x,y)=>(x.t||0)-(y.t||0)||(x.id<y.id?-1:x.id>y.id?1:0));
+  return Object.assign({},newer,{logs:logs,del:[...del].slice(-1000),u:Math.max(a.u||0,b.u||0)});
+}
+function mergeAll(L,R){
+  const delJ=new Set([].concat(L.del||[],R.del||[])),m=new Map();
+  R.jobs.forEach(j=>m.set(j.id,j));
+  L.jobs.forEach(j=>{const r=m.get(j.id);m.set(j.id,r?mergeJob(j,r):j);});
+  let jobs=[...m.values()].filter(j=>!delJ.has(j.id));
+  if(jobs.some(j=>!(j.auto&&!j.logs.length)))jobs=jobs.filter(j=>!(j.auto&&!j.logs.length));
+  if(!jobs.length){const nj=newJob();nj.auto=true;jobs=[nj];}
+  jobs.sort((a,b)=>(a.created||0)-(b.created||0)||(a.id<b.id?-1:1));
+  const nm=(L.mu||0)>=(R.mu||0)?L:R,om=nm===L?R:L,has=id=>jobs.some(j=>j.id===id);
+  const cur=has(nm.cur)?nm.cur:has(om.cur)?om.cur:jobs[jobs.length-1].id;
+  return {v:3,mu:Math.max(L.mu||0,R.mu||0),cur:cur,del:[...delJ].slice(-1000),jobs:jobs};
+}
+let syncSt="ok";
+const SYNC_TXT={ok:"✓ uloženo",err:"⚠ neuloženo"};
+function setSync(s){
+  syncSt=s;const el=document.getElementById("sync");
+  if(el){el.textContent=SYNC_TXT[s]||"";el.className="sync "+(s==="ok"?"ok":"offline");}
+}
+function writeLocal(){
+  try{localStorage.setItem(KEY,JSON.stringify(S));setSync("ok");return true;}
+  catch(e){setSync("err");return false;}
+}
+function touchMeta(){S.mu=Date.now();}
+function save(){const j=job();j.u=Date.now();writeLocal();}
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});}catch(e){}
+
+/* ---------- výpočet ----------
+   Kulatina: objem = π/4 · d² · L (Huber). d = celé cm dolů minus srážka na kůru (pokud není „bez kůry“),
+   L = celé dm dolů, objem kusu na 2 des. místa.
+   Srážka 2k = p0 + p1·d^p2 (Doporučená pravidla pro měření a třídění dříví v ČR, tab. 6.9).
+   Suráky: objem = kategorie × 0,1 m³ × množství. */
+const BP={SM:[0.57723,0.0068968,1.3123],BO:[0.24017,0.001915,1.7866],MD:[1.7015,0.008762,1.4568],
+  BK:[-0.04088,0.16634,0.56076],DB:[1.2474,0.042323,1.0623]};
+const BGRP={SM:"SM",JD:"SM",BO:"BO",DG:"BO",MD:"MD",BK:"BK",JV:"BK",OS:"BK",DB:"DB",JS:"DB",BR:"DB",OL:"DB",TP:"DB"};
+function bark2k(d,s,o,nb){
+  if(nb)return 0;
+  const p=BP[(o&&s==="BO")?"MD":(BGRP[s]||"BK")];
+  return Math.max(0,Math.round((p[0]+p[1]*Math.pow(Math.floor(d+1e-9),p[2]))*10)/10);
+}
+const effD=(d,s,o,nb)=>Math.round((Math.floor(d+1e-9)-bark2k(d,s,o,nb))*10)/10;
+function volK(L,d,s,o,nb){
+  const dd=effD(d,s,o,nb);if(dd<=0||!(L>0))return 0;
+  return Math.round(Math.PI/4*Math.pow(dd/100,2)*(Math.floor(L*10+1e-6)/10)*100+1e-9)/100;
+}
+const volS=(k,q)=>Math.round(k*q*10+1e-9)/100;
+const isSurLog=l=>modeOf(l)==="S"&&l.k!=null;
+const pcs=l=>isSurLog(l)?(l.q||1):1;
+const lv=l=>isSurLog(l)?volS(l.k,l.q||1):volK(l.L,l.d,l.s,l.o,l.nb);
+const fmt=(n,dec)=>n.toLocaleString("cs-CZ",{minimumFractionDigits:dec,maximumFractionDigits:dec});
+const fmtL=n=>n.toLocaleString("cs-CZ",{maximumFractionDigits:2});
+const kc=n=>Math.round(n).toLocaleString("cs-CZ")+" Kč";
+function tot(logs){let v=0,n=0,o=0;for(const l of logs){v+=lv(l);n+=pcs(l);if(l.o)o+=pcs(l);}return {n,o,v:Math.round(v*100)/100};}
+function desc(l){return isSurLog(l)?`kat. ${fmtL(l.k)} × ${fmtL(l.q||1)} ks`:`${l.d} cm × ${fmtL(l.L)} m`;}
+
+/* ---------- zadávání ----------
+   Kulatina: A = délka (zůstává nastavená), B = průměr.  Suráky: A = kategorie, B = množství. */
+let active="B",bufA="",bufB="",flashId=null;
+const isSur=()=>job().mode==="S";
+function resetEntry(){bufA="";bufB="";active=isSur()?"A":"B";}
+const num=b=>parseFloat(String(b||"").replace(",","."))||0;
+function valA(){return isSur()?num(bufA):(bufA!==""?num(bufA):job().L);}
+function valB(){return isSur()?(bufB===""?1:num(bufB)):num(bufB);}
+function preview(){
+  const j=job();
+  if(isSur()){const k=valA();return k>0?volS(k,valB()):0;}
+  const L=valA(),d=num(bufB);return (L>0&&d>0)?volK(L,d,j.sp,j.odd,j.nb):0;
+}
+function renderEntry(){
+  const j=job(),sur=isSur();
+  document.body.classList.toggle("sur",sur);
+  $("#lA").textContent=sur?"Kategorie":"Délka";$("#uA").textContent=sur?"":"m";
+  $("#lB").textContent=sur?"Množství":"Průměr";$("#uB").textContent=sur?"ks":"cm";
+  $("#vA").textContent=bufA!==""?bufA:(sur?" ":fmtL(j.L));
+  const vb=$("#vB");vb.textContent=bufB!==""?bufB:(sur?"1":" ");vb.classList.toggle("ph",sur&&bufB==="");
+  $("#fA").classList.toggle("on",active==="A");$("#fB").classList.toggle("on",active==="B");
+  const v=preview();
+  $("#vV").textContent=v>0?fmt(v,2):"—";
+  let note="";
+  if(!sur){const d=num(bufB);note=j.nb?"bez kůry":(d>0?"kůra −"+fmt(bark2k(d,j.sp,j.odd,j.nb),1)+" cm":"");}
+  $("#vNote").textContent=note;
+  const add=$("#addBtn");
+  add.classList.toggle("next",active==="A");
+  if(active==="A"){add.innerHTML=(sur?"Množství":"Průměr")+"<br>→";add.disabled=!(valA()>0);}
+  else{add.innerHTML='<span class="plus">+</span>Přidat';add.disabled=!(v>0);}
+  $("#commaKey").disabled=!(!sur&&active==="A");
+  const spn=SPN[j.sp]||j.sp;$("#kSpV").textContent=spn;$("#kSpV").style.fontSize=spn.length>8?"12.5px":"";
+  $("#kJakV").textContent=JAK[(j.jak||1)-1];
+  $("#kOdd").classList.toggle("on",!!j.odd);$("#kOddV").textContent=j.odd?"Ano":"Ne";
+  $("#kBk").classList.toggle("on",!!j.nb);$("#kBkV").textContent=j.nb?"Bez kůry":"S kůrou";
+  renderInfo();
+}
+function renderInfo(){
+  const j=job(),sur=isSur(),el=$("#info");
+  if(!sur&&active==="A"){
+    el.innerHTML=LENS.map(l=>`<button class="chipL${bufA===""&&j.L===l?" on":""}" data-l="${l}">${l} m</button>`).join("");
+    return;
+  }
+  const items=logsOf(j,j.mode);
+  if(items.length){
+    const l=items[items.length-1];
+    el.innerHTML=`<button class="last${l.id===flashId?" flash":""}" data-go="list"><span>Č. ${items.length}</span><b>${desc(l)}</b><b class="lv">${fmt(lv(l),2)} m³</b><i>›</i></button>`;
+  }else{
+    el.innerHTML=`<span class="il">${sur?"Kategorie → Množství → Přidat":"Délka zůstává · zadejte průměr → Přidat"}</span>`;
+  }
+  flashId=null;
+}
+function commitA(){
+  if(isSur()||bufA==="")return;
+  const v=num(bufA);if(v>0&&v<100){job().L=Math.round(v*100)/100;save();}
+  bufA="";
+}
+function setActive(f){if(f===active)return;if(active==="A")commitA();active=f;renderEntry();}
+function key(k){
+  if(k==="add"){
+    if(active==="A"){if(valA()>0){commitA();active="B";}renderEntry();return;}
+    addLog();return;
+  }
+  const isDecA=active==="A"&&!isSur();
+  let b=active==="A"?bufA:bufB;
+  if(k==="back")b=b.slice(0,-1);
+  else if(k===","){if(!isDecA)return;if(!b.includes(","))b=(b||"0")+",";}
+  else if(/\d/.test(k)){
+    if(isDecA){const p=b.split(",");if(p.length>1){if(p[1].length<2)b+=k;}else if(p[0].length<2)b=(b+k).replace(/^0+(?=\d)/,"");}
+    else if(b.length<3)b=(b+k).replace(/^0+/,"");
+  }
+  if(active==="A")bufA=b;else bufB=b;
+  renderEntry();
+}
+function addLog(){
+  const j=job();if(active==="A")commitA();
+  let l;
+  if(isSur()){
+    const k=valA(),q=valB();if(!(k>0&&q>0)){renderEntry();return;}
+    l={id:uid(),m:"S",s:j.sp,k:k,q:q,jak:j.jak||1,t:Date.now()};
+    if(j.odd)l.o=1;
+  }else{
+    const L=j.L,d=num(bufB);if(!(volK(L,d,j.sp,j.odd,j.nb)>0)){renderEntry();return;}
+    l={id:uid(),s:j.sp,L:L,d:d,jak:j.jak||1,t:Date.now()};
+    if(j.odd)l.o=1;if(j.nb)l.nb=1;
+  }
+  j.logs.push(l);flashId=l.id;
+  if(j.auto){delete j.auto;touchMeta();}
+  if(isSur()){bufA="";bufB="";active="A";}else{bufB="";active="B";}
+  save();try{navigator.vibrate&&navigator.vibrate(12);}catch(e){}
+  renderEntry();renderHeader();
+}
+function undoLast(){
+  const j=job(),m=j.mode;
+  for(let i=j.logs.length-1;i>=0;i--){
+    if(modeOf(j.logs[i])===m){const l=j.logs.splice(i,1)[0];j.del.push(l.id);save();renderHeader();renderEntry();toast("Smazáno: "+desc(l));return;}
+  }
+  toast("Není co vrátit");
+}
+
+/* ---------- vykreslení ---------- */
+function renderHeader(){
+  const j=job(),t=tot(logsOf(j,j.mode));
+  $("#hJob").textContent=j.name+(j.jprl?" · "+j.jprl:"");
+  $("#hVol").textContent=fmt(t.v,2);
+  $("#hCnt").textContent=MODES[j.mode]+" · "+t.n+" ks";
+}
+function renderMode(){document.querySelectorAll("#modeSw button").forEach(b=>b.classList.toggle("on",b.dataset.m===job().mode));}
+function sub(l){
+  return [SPN[l.s]||l.s,"jakost "+JAK[(l.jak||1)-1]].concat(l.o?["oddenek"]:[]).concat(l.nb?["bez kůry"]:[]).join(" · ");
+}
+function renderList(){
+  const j=job(),m=j.mode,items=logsOf(j,m),t=tot(items);
+  let h=`<div class="lsum"><span>${MODES[m]}</span><b>${t.n} ks · ${fmt(t.v,2)} m³</b></div>`;
+  if(!items.length)h+=`<div class="empty">Zatím žádné záznamy.<br>Přidávejte na záložce <b>Měření</b>.</div>`;
+  for(let i=items.length-1;i>=0;i--){
+    const l=items[i];
+    h+=`<div class="row" data-id="${l.id}"><span class="n">${i+1}</span><div class="main"><b>${desc(l)}</b><small>${sub(l)}</small></div><span class="v">${fmt(lv(l),2)}<span>m³</span></span><button class="x" data-del="${l.id}" aria-label="Smazat">×</button></div>`;
+  }
+  if(items.length)h+=`<p class="note" style="text-align:center;padding-top:6px">Ťuknutím na řádek ho upravíte, křížkem smažete.</p>`;
+  $("#listBody").innerHTML=h;
+}
+function group(logs,keyFn){const o={};for(const l of logs){const k=keyFn(l),a=o[k]||(o[k]={n:0,v:0});a.n+=pcs(l);a.v+=lv(l);}return o;}
+function kvs(t){return `<div class="kv"><span>Počet kusů</span><b>${t.n}</b></div><div class="kv"><span>Počet oddenků</span><b>${t.o}</b></div><div class="kv"><span>Celkový objem</span><b>${fmt(t.v,2)} m³</b></div>`;}
+function tables(logs){
+  const a=group(logs,l=>l.s),q=group(logs,l=>l.jak||1);
+  let h=`<table style="margin-top:10px"><tr><th>Dřevina</th><th>ks</th><th>m³</th></tr>`;
+  SPECIES.forEach(([k,n])=>{if(a[k])h+=`<tr><td>${n}</td><td>${a[k].n}</td><td>${fmt(a[k].v,2)}</td></tr>`;});
+  h+=`</table><table style="margin-top:8px"><tr><th>Jakost</th><th>ks</th><th>m³</th></tr>`;
+  JAK.forEach((n,i)=>{const x=q[i+1];if(x)h+=`<tr><td>${n}</td><td>${x.n}</td><td>${fmt(x.v,2)}</td></tr>`;});
+  return h+`</table>`;
+}
+function renderSum(){
+  const j=job(),K=logsOf(j,"K"),Sx=logsOf(j,"S"),all=tot(j.logs);
+  let h=`<div class="hero"><div><small>Celkem</small><b>${fmt(all.v,2)}<span>m³</span></b></div><div><small>Kusů</small><b>${all.n}</b></div></div>`;
+  if(!j.logs.length){$("#sumBody").innerHTML=h+`<div class="empty">Zatím nic změřeno.</div>`;return;}
+  if(K.length)h+=`<div class="card k"><h3>Kulatina</h3>${kvs(tot(K))}${tables(K)}</div>`;
+  if(Sx.length)h+=`<div class="card s"><h3>Suráky</h3>${kvs(tot(Sx))}${tables(Sx)}</div>`;
+  h+=`<div class="card"><h3>Dohromady</h3>${kvs(all)}<div class="kv"><span>Prům. hmotnatost kusu</span><b>${all.n?fmt(all.v/all.n,2):"0,00"} m³</b></div></div>`;
+  const agg=group(j.logs,l=>l.s);let price=0;
+  h+=`<div class="card"><h3>Cena (nepovinné)</h3><table><tr><th>Dřevina</th><th>m³</th><th>Kč/m³</th><th>Kč</th></tr>`;
+  SPECIES.forEach(([k,n])=>{const a=agg[k];if(!a)return;const pr=+j.prices[k]||0;price+=a.v*pr;
+    h+=`<tr><td>${n}</td><td>${fmt(a.v,2)}</td><td><input class="price" inputmode="numeric" data-price="${k}" value="${pr||""}" placeholder="0"></td><td>${pr?Math.round(a.v*pr).toLocaleString("cs-CZ"):"—"}</td></tr>`;});
+  h+=`<tr class="sum"><td>Celkem</td><td>${fmt(all.v,2)}</td><td></td><td>${price?Math.round(price).toLocaleString("cs-CZ"):"—"}</td></tr></table></div>`;
+  h+=`<div class="btns" style="margin-bottom:12px"><button class="btn pri" data-act="copy">Kopírovat sumář</button><button class="btn" data-act="csv">Sdílet CSV</button></div>`;
+  h+=`<p class="note">Kulatina: objem = π/4 · d² · L; průměr v celých cm dolů minus srážka na kůru podle dřeviny (Doporučená pravidla, tab. 6.9), u „bez kůry“ bez srážky; délka na celé dm dolů; každý kus na 2 des. místa. Suráky: kategorie × 0,1 m³ × počet kusů.</p>`;
+  $("#sumBody").innerHTML=h;
+}
+function renderJobs(){
+  const j=job();
+  let h=`<div class="btns" style="margin:4px 0 12px"><button class="btn" data-act="back">← Zpět</button><button class="btn pri" data-act="newjob">+ Nová zakázka</button></div>
+    <div class="card"><h3>Otevřená zakázka</h3>
+    <div class="kv"><span>Název</span><b>${esc(j.name)}</b></div>
+    <div class="kv"><span>JPRL</span><b>${j.jprl?esc(j.jprl):"—"}</b></div>
+    <div class="btns" style="margin-top:10px"><button class="btn" data-act="edit">Upravit název / JPRL</button><button class="btn danger" data-act="deljob">Smazat</button></div></div>
+    <div class="card"><h3>Ukládání a záloha · <span class="sync ${syncSt==="ok"?"ok":"offline"}">${SYNC_TXT[syncSt]}</span></h3>
+    <p class="note" style="padding:0 0 10px;margin:0">${syncSt==="ok"?"Zakázky se ukládají v tomto zařízení a fungují i bez signálu. Pro jistotu si občas uložte zálohu do Souborů nebo si ji pošlete e-mailem.":"Ukládání v tomto prohlížeči nefunguje (např. soukromé prohlížení). Otevřete kubírovačku v běžném okně nebo z plochy."}</p>
+    <div class="btns"><button class="btn" data-act="backup">Uložit zálohu</button><button class="btn" data-act="restore">Načíst zálohu</button></div></div>
+    ${isStandalone()?"":`<div class="card"><h3>Přidat na plochu</h3><p class="note" style="padding:0;margin:0">${installSteps()}</p></div>`}
+    <div class="lbl">Všechny zakázky</div><div class="jobs">`;
+  S.jobs.slice().sort((a,b)=>b.created-a.created).forEach(x=>{const t=tot(x.logs);
+    h+=`<div class="j${x.id===S.cur?" on":""}" data-job="${x.id}"><div class="t"><b>${esc(x.name)}</b><small>${new Date(x.created).toLocaleDateString("cs-CZ")}${x.jprl?" · "+esc(x.jprl):""} · ${t.n} ks</small></div><span class="m">${fmt(t.v,2)} m³</span></div>`;});
+  h+=`</div><p class="note">Ťukněte na zakázku a otevře se.</p>`;
+  $("#jobsBody").innerHTML=h;
+}
+function curView(){const v=document.querySelector(".view.on");return v?v.id.slice(2):"measure";}
+function show(v){
+  if(v!=="measure"&&active==="A")commitA();
+  document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x.dataset.v===v));
+  document.querySelectorAll(".view").forEach(x=>x.classList.toggle("on",x.id==="v-"+v));
+  $("#modeBar").style.display=(v==="measure"||v==="list")?"":"none";
+  if(v==="list")renderList();if(v==="sum")renderSum();if(v==="jobs")renderJobs();
+  if(v==="measure")renderEntry();
+}
+function renderAll(){renderHeader();renderMode();renderEntry();
+  const v=curView();if(v==="list")renderList();if(v==="sum")renderSum();if(v==="jobs")renderJobs();}
+
+/* ---------- export ---------- */
+function summaryText(){
+  const j=job(),lines=[j.name+(j.jprl?" · JPRL "+j.jprl:""),new Date().toLocaleDateString("cs-CZ")];
+  ["K","S"].forEach(m=>{const logs=logsOf(j,m);if(!logs.length)return;const t=tot(logs),a=group(logs,l=>l.s);
+    lines.push("",MODES[m].toUpperCase());
+    SPECIES.forEach(([k,n])=>{if(a[k])lines.push(`${n}: ${a[k].n} ks, ${fmt(a[k].v,2)} m³`);});
+    lines.push(`Celkem: ${t.n} ks, z toho ${t.o} oddenků, ${fmt(t.v,2)} m³`);});
+  const all=tot(j.logs);let price=0;const agg=group(j.logs,l=>l.s);for(const k in agg)price+=agg[k].v*(+j.prices[k]||0);
+  lines.push("",`DOHROMADY: ${all.n} ks, ${fmt(all.v,2)} m³`+(price?`, ${kc(price)}`:""));
+  return lines.join("\n");
+}
+function csv(){
+  const j=job(),r=[["druh","c","drevina","jakost","oddenek","bez_kury","delka_m","prumer_cm","srazka_kura_cm","kategorie","mnozstvi_ks","objem_m3"].join(";")];
+  ["K","S"].forEach(m=>logsOf(j,m).forEach((l,i)=>{
+    const s_=isSurLog(l);
+    r.push([MODES[m],i+1,SPN[l.s]||l.s,JAK[(l.jak||1)-1],l.o?"ano":"",l.nb?"ano":"",s_?"":fmtL(l.L),s_?"":l.d,s_?"":fmt(bark2k(l.d,l.s,l.o,l.nb),1),s_?fmtL(l.k):"",s_?fmtL(l.q||1):"1",fmt(lv(l),2)].join(";"));}));
+  return r.join("\n");
+}
+async function copy(t){try{await navigator.clipboard.writeText(t);toast("Zkopírováno");}catch(e){toast("Kopírování se nepovedlo");}}
+function fileBase(){const n=(job().name||"kubirovani").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"");return n||"kubirovani";}
+async function shareFile(name,text,type){
+  const blob=new Blob([text],{type:type});
+  try{
+    const f=new File([blob],name,{type:type});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return;}
+  }catch(e){if(e&&e.name==="AbortError")return;}
+  try{
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},5000);toast("Uloženo: "+name);
+  }catch(e){copy(text);}
+}
+function backup(){
+  const d=new Date(),ds=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  shareFile("kubirovacka-zaloha-"+ds+".json",JSON.stringify({app:"kubirovacka",v:3,exported:Date.now(),data:S}),"application/json");
+}
+function restoreFrom(file){
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const x=JSON.parse(rd.result),o=normalize(x&&x.data?x.data:x);
+      if(!o)throw 0;
+      const before=S.jobs.length;S=mergeAll(S,o);writeLocal();resetEntry();renderAll();
+      toast("Záloha načtena · zakázek: "+S.jobs.length+(S.jobs.length>before?" (+"+(S.jobs.length-before)+")":""));
+    }catch(e){toast("Tohle není záloha kubírovačky");}
+  };
+  rd.readAsText(file);
+}
+function isStandalone(){return window.navigator.standalone===true||(window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches);}
+function isIOS(){return /iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);}
+function installSteps(){
+  return isIOS()?"V Safari ťukněte dole na <b>Sdílet</b> (čtvereček se šipkou nahoru) → <b>Přidat na plochu</b> → <b>Přidat</b>. Kubírovačka se pak otevírá jako aplikace a funguje i bez signálu."
+    :"V prohlížeči otevřete nabídku <b>⋮</b> → <b>Přidat na plochu</b> (nebo <b>Nainstalovat aplikaci</b>). Kubírovačka se pak otevírá jako aplikace a funguje i bez signálu.";
+}
+
+
+/* ---------- dialogy ---------- */
+let tt;function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("on"),1800);}
+function modal(html,onOk,okLabel){
+  $("#sheet").innerHTML=html+(onOk?`<div class="btns"><button class="btn" data-mb="no">Zrušit</button><button class="btn pri" data-mb="ok">${okLabel||"OK"}</button></div>`:"");
+  $("#modal").classList.add("on");
+  const inp=$("#sheet input");if(inp)setTimeout(()=>{inp.focus();},50);
+  $("#sheet").onclick=e=>{const b=e.target.closest("[data-mb]");if(!b)return;
+    if(b.dataset.mb==="ok"&&onOk()===false)return;
+    closeModal();};
+}
+function closeModal(){$("#modal").classList.remove("on");}
+$("#modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal();});
+function pick(title,items,cur,cls,onPick){
+  modal(`<h2>${title}</h2><div class="grid ${cls||""}">${items.map(([v,t])=>`<button data-pv="${v}" class="${String(cur)===String(v)?"on":""}">${t}</button>`).join("")}</div>`);
+  $("#sheet").onclick=e=>{const b=e.target.closest("[data-pv]");if(!b)return;onPick(b.dataset.pv);closeModal();};
+}
+
+/* ---------- události ---------- */
+$("#pad").addEventListener("pointerdown",e=>{const b=e.target.closest("[data-k]");if(!b||b.disabled)return;e.preventDefault();key(b.dataset.k);});
+$("#pad").addEventListener("click",e=>{
+  const b=e.target.closest("[data-f]");if(!b)return;const j=job(),f=b.dataset.f;
+  if(f==="sp")pick("Dřevina",SPECIES,j.sp,"",v=>{j.sp=v;save();renderEntry();});
+  if(f==="jak")pick("Jakost",JAK.map((n,i)=>[i+1,n]),j.jak||1,"jak",v=>{j.jak=+v;save();renderEntry();});
+  if(f==="odd"){j.odd=!j.odd;save();renderEntry();}
+  if(f==="bk"){j.nb=!j.nb;save();renderEntry();}
+  if(f==="undo")undoLast();
+});
+$("#fA").onclick=()=>setActive("A");
+$("#fB").onclick=()=>setActive("B");
+$("#info").onclick=e=>{
+  const c=e.target.closest("[data-l]");
+  if(c){job().L=parseFloat(c.dataset.l);bufA="";active="B";save();renderEntry();return;}
+  if(e.target.closest("[data-go]"))show("list");
+};
+$("#modeSw").onclick=e=>{const b=e.target.closest("[data-m]");if(!b)return;const j=job();
+  if(active==="A")commitA();j.mode=b.dataset.m;resetEntry();save();renderMode();renderHeader();renderEntry();
+  if(curView()==="list")renderList();};
+$("#listBody").onclick=e=>{
+  const j=job(),x=e.target.closest("[data-del]");
+  if(x){const l=j.logs.find(l=>l.id===x.dataset.del);if(!l)return;
+    modal(`<h2>Smazat záznam?</h2><p>${desc(l)} · ${fmt(lv(l),2)} m³</p>`,()=>{j.logs=j.logs.filter(q=>q!==l);j.del.push(l.id);save();renderList();renderHeader();},"Smazat");return;}
+  const r=e.target.closest(".row");if(!r)return;
+  const l=j.logs.find(q=>q.id===r.dataset.id);if(!l)return;
+  if(isSurLog(l)){
+    modal(`<h2>Upravit surák</h2><p>Kategorie a množství (ks)</p><input id="e1" inputmode="numeric" value="${fmtL(l.k)}"><input id="e2" inputmode="numeric" value="${fmtL(l.q||1)}">`,()=>{
+      const k=num($("#e1").value),q=num($("#e2").value);if(!(k>0)||!(q>0)){toast("Neplatná hodnota");return false;}
+      l.k=k;l.q=q;l.u=Date.now();save();renderList();renderHeader();});
+  }else{
+    modal(`<h2>Upravit kus</h2><p>Průměr (cm) a délka (m)</p><input id="e1" inputmode="numeric" value="${l.d}"><input id="e2" inputmode="decimal" value="${fmtL(l.L)}">`,()=>{
+      const d=parseInt($("#e1").value,10),L=num($("#e2").value);if(!(d>0)||!(L>0)){toast("Neplatná hodnota");return false;}
+      l.d=d;l.L=L;l.u=Date.now();save();renderList();renderHeader();});
+  }
+};
+document.querySelector("nav").onclick=e=>{const b=e.target.closest("[data-v]");if(b)show(b.dataset.v);};
+$("#hJobBtn").onclick=()=>show(curView()==="jobs"?"measure":"jobs");
+$("#sumBody").addEventListener("input",e=>{const k=e.target.dataset.price;if(!k)return;job().prices[k]=num(e.target.value);save();});
+$("#sumBody").addEventListener("change",e=>{if(e.target.dataset.price)renderSum();});
+$("#sumBody").addEventListener("click",async e=>{const a=e.target.closest("[data-act]");if(!a)return;
+  if(a.dataset.act==="copy")copy(summaryText());
+  if(a.dataset.act==="copycsv")copy(csv());
+  if(a.dataset.act==="csv")shareFile(fileBase()+".csv","\ufeff"+csv(),"text/csv");
+});
+$("#jobsBody").addEventListener("click",e=>{
+  const a=e.target.closest("[data-act]"),jb=e.target.closest("[data-job]");
+  if(jb){S.cur=jb.dataset.job;touchMeta();resetEntry();save();renderAll();show("measure");toast("Otevřena: "+job().name);return;}
+  if(!a)return;const j=job();
+  if(a.dataset.act==="back"){show("measure");return;}
+  if(a.dataset.act==="backup"){backup();return;}
+  if(a.dataset.act==="restore"){const inp=$("#restoreIn");inp.value="";inp.click();return;}
+  if(a.dataset.act==="newjob")modal(`<h2>Nová zakázka</h2><p>Název (lokalita, odběratel…) a JPRL</p><input id="e1" placeholder="Název"><input id="e2" placeholder="JPRL (nepovinné)">`,()=>{
+    const nj=newJob($("#e1").value.trim(),j);nj.jprl=$("#e2").value.trim();S.jobs.push(nj);S.cur=nj.id;touchMeta();resetEntry();save();renderAll();show("measure");},"Založit");
+  if(a.dataset.act==="edit")modal(`<h2>Upravit zakázku</h2><input id="e1" value="${esc(j.name)}" placeholder="Název"><input id="e2" value="${esc(j.jprl||"")}" placeholder="JPRL">`,()=>{
+    const n=$("#e1").value.trim();if(n)j.name=n;j.jprl=$("#e2").value.trim();delete j.auto;save();renderAll();});
+  if(a.dataset.act==="deljob")modal(`<h2>Smazat zakázku?</h2><p>„${esc(j.name)}“ i se všemi záznamy (${j.logs.length}).</p>`,()=>{
+    S.jobs=S.jobs.filter(x=>x.id!==j.id);S.del.push(j.id);if(!S.jobs.length){const n=newJob();n.auto=true;S.jobs.push(n);}S.cur=S.jobs[S.jobs.length-1].id;touchMeta();resetEntry();save();renderAll();},"Smazat");
+});
+document.addEventListener("keydown",e=>{
+  if($("#modal").classList.contains("on")||curView()!=="measure")return;
+  if(/^\d$/.test(e.key))key(e.key);else if(e.key===","||e.key===".")key(",");
+  else if(e.key==="Backspace")key("back");else if(e.key==="Enter")key("add");else if(e.key==="Tab")setActive(active==="A"?"B":"A");else return;
+  e.preventDefault();
+});
+$("#restoreIn").addEventListener("change",e=>{const f=e.target.files&&e.target.files[0];if(f)restoreFrom(f);});
+if(!writeLocal())setSync("err");
+resetEntry();
+renderAll();
+// jednorázová nápověda: přidat na plochu (jen na mobilu v prohlížeči)
+try{
+  if(!isStandalone()&&window.matchMedia("(pointer: coarse)").matches&&!localStorage.getItem("kubirovacka.hint")){
+    setTimeout(()=>{
+      modal(`<h2>Přidejte si kubírovačku na plochu</h2><p style="color:var(--ink);line-height:1.5">${installSteps()}</p><div class="btns"><button class="btn pri" id="hintOk">Rozumím</button></div>`);
+      $("#hintOk").onclick=()=>{try{localStorage.setItem("kubirovacka.hint","1");}catch(e){}closeModal();};
+    },700);
+  }
+}catch(e){}
+// offline režim (service worker)
+if("serviceWorker" in navigator&&(location.protocol==="https:"||location.hostname==="localhost")){
+  window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{});});
+}
+})();
+
+</script>
+</body>
+</html>
